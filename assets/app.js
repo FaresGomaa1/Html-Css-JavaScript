@@ -7,20 +7,27 @@
     query: '',
     category: 'all',
     level: 'all',
-    sort: 'popular'
+    sort: 'popular',
+    currentPage: 'home',
+    currentUser: null,
+    enrolledCourses: []
   };
 
   const els = {};
 
   document.addEventListener('DOMContentLoaded', () => {
     cacheElements();
-    hydrateInitialData();
-    wireHeaderNav();
-    wireFilters();
-    renderYear();
+    initializeApp();
   });
 
   function cacheElements() {
+    // Page elements
+    els.homePage = document.getElementById('home-page');
+    els.courseDetailsPage = document.getElementById('course-details-page');
+    els.categoriesPage = document.getElementById('categories-page');
+    els.aboutPage = document.getElementById('about-page');
+    
+    // Course elements
     els.grid = document.getElementById('coursesGrid');
     els.results = document.getElementById('resultsCount');
     els.search = document.getElementById('searchInput');
@@ -28,10 +35,11 @@
     els.level = document.getElementById('levelSelect');
     els.sort = document.getElementById('sortSelect');
     els.clear = document.getElementById('clearFilters');
-    els.modal = document.getElementById('courseModal');
-    els.modalBackdrop = els.modal.querySelector('.modal-backdrop');
-    els.modalDialog = els.modal.querySelector('.modal-dialog');
-    els.modalClose = els.modal.querySelector('.modal-close');
+    
+    // Modal elements
+    els.courseModal = document.getElementById('courseModal');
+    els.modalBackdrop = els.courseModal.querySelector('.modal-backdrop');
+    els.modalClose = els.courseModal.querySelector('.modal-close');
     els.modalImage = document.getElementById('modalImage');
     els.modalTitle = document.getElementById('modalTitle');
     els.modalDesc = document.getElementById('modalDesc');
@@ -39,7 +47,48 @@
     els.modalLevel = document.getElementById('modalLevel');
     els.modalDuration = document.getElementById('modalDuration');
     els.modalTags = document.getElementById('modalTags');
-    els.modalCta = document.getElementById('modalCta');
+    els.modalViewDetails = document.getElementById('modalViewDetails');
+    els.modalEnroll = document.getElementById('modalEnroll');
+    
+    // Auth elements
+    els.authModal = document.getElementById('authModal');
+    els.authBackdrop = els.authModal.querySelector('.modal-backdrop');
+    els.authClose = els.authModal.querySelector('.modal-close');
+    els.signInForm = document.getElementById('signInForm');
+    els.signUpForm = document.getElementById('signUpForm');
+    els.signInFormElement = document.getElementById('signInFormElement');
+    els.signUpFormElement = document.getElementById('signUpFormElement');
+    els.switchToSignUp = document.getElementById('switchToSignUp');
+    els.switchToSignIn = document.getElementById('switchToSignIn');
+    els.signInBtn = document.getElementById('signInBtn');
+    els.signUpBtn = document.getElementById('signUpBtn');
+    els.authButtons = document.getElementById('auth-buttons');
+    els.userMenu = document.getElementById('user-menu');
+    els.userMenuBtn = document.getElementById('userMenuBtn');
+    els.userDropdown = document.getElementById('userDropdown');
+    els.userInitials = document.getElementById('userInitials');
+    els.userName = document.getElementById('userName');
+    els.signOutBtn = document.getElementById('signOutBtn');
+    
+    // Navigation elements
+    els.navLinks = document.querySelectorAll('[data-page]');
+    els.navToggle = document.querySelector('.nav-toggle');
+    els.siteNav = document.querySelector('.site-nav');
+    
+    // Course details elements
+    els.courseDetailsContent = document.getElementById('courseDetailsContent');
+    els.courseTitleBreadcrumb = document.getElementById('courseTitleBreadcrumb');
+    
+    // Categories elements
+    els.categoriesGrid = document.getElementById('categoriesGrid');
+  }
+
+  function initializeApp() {
+    hydrateInitialData();
+    wireEventListeners();
+    checkAuthState();
+    renderYear();
+    showPage('home');
   }
 
   function hydrateInitialData() {
@@ -48,23 +97,29 @@
     applyFilters();
   }
 
-  function wireHeaderNav() {
-    const toggle = document.querySelector('.nav-toggle');
-    const nav = document.querySelector('.site-nav');
-    toggle.addEventListener('click', () => {
-      const isOpen = nav.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', String(isOpen));
+  function wireEventListeners() {
+    // Navigation
+    els.navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = link.getAttribute('data-page');
+        showPage(page);
+      });
     });
-  }
 
-  function wireFilters() {
+    // Mobile navigation
+    els.navToggle.addEventListener('click', () => {
+      const isOpen = els.siteNav.classList.toggle('open');
+      els.navToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    // Search and filters
     const debouncedSearch = debounce((value) => {
       state.query = value.trim().toLowerCase();
       applyFilters();
     }, 120);
 
     els.search.addEventListener('input', (e) => debouncedSearch(e.target.value));
-
     els.category.addEventListener('change', (e) => {
       state.category = e.target.value;
       applyFilters();
@@ -88,22 +143,183 @@
       els.search.focus();
     });
 
+    // Course interactions
     els.grid.addEventListener('click', (e) => {
       const button = e.target.closest('[data-course-id]');
       if (button) {
         const courseId = button.getAttribute('data-course-id');
-        const course = state.filtered.find((c) => String(c.id) === String(courseId)) || state.courses.find((c) => String(c.id) === String(courseId));
-        if (course) openModal(course);
+        const course = state.filtered.find((c) => String(c.id) === String(courseId)) || 
+                      state.courses.find((c) => String(c.id) === String(courseId));
+        if (course) openCourseModal(course);
       }
     });
 
-    // Close modal interactions
-    els.modal.addEventListener('click', (e) => {
-      if (e.target.matches('[data-close]') || e.target === els.modalBackdrop) closeModal();
+    // Course modal interactions
+    els.modalViewDetails.addEventListener('click', () => {
+      const courseId = els.modalTitle.getAttribute('data-course-id');
+      const course = state.courses.find(c => String(c.id) === String(courseId));
+      if (course) {
+        closeCourseModal();
+        showCourseDetails(course);
+      }
     });
+
+    els.modalEnroll.addEventListener('click', () => {
+      const courseId = els.modalTitle.getAttribute('data-course-id');
+      enrollInCourse(courseId);
+    });
+
+    // Close modals
+    els.courseModal.addEventListener('click', (e) => {
+      if (e.target.matches('[data-close]') || e.target === els.modalBackdrop) closeCourseModal();
+    });
+    
+    els.authModal.addEventListener('click', (e) => {
+      if (e.target.matches('[data-close]') || e.target === els.authBackdrop) closeAuthModal();
+    });
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !els.modal.hasAttribute('hidden')) closeModal();
+      if (e.key === 'Escape') {
+        if (!els.courseModal.hasAttribute('hidden')) closeCourseModal();
+        if (!els.authModal.hasAttribute('hidden')) closeAuthModal();
+      }
     });
+
+    // Authentication
+    els.signInBtn.addEventListener('click', () => openAuthModal('signin'));
+    els.signUpBtn.addEventListener('click', () => openAuthModal('signup'));
+    els.switchToSignUp.addEventListener('click', () => switchAuthForm('signup'));
+    els.switchToSignIn.addEventListener('click', () => switchAuthForm('signin'));
+    els.signInFormElement.addEventListener('submit', handleSignIn);
+    els.signUpFormElement.addEventListener('submit', handleSignUp);
+    els.signOutBtn.addEventListener('click', handleSignOut);
+    
+    // User menu
+    els.userMenuBtn.addEventListener('click', () => {
+      const isOpen = els.userDropdown.hidden;
+      els.userDropdown.hidden = !isOpen;
+      els.userMenuBtn.setAttribute('aria-expanded', String(!isOpen));
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!els.userMenu.contains(e.target)) {
+        els.userDropdown.hidden = true;
+        els.userMenuBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  function showPage(pageName) {
+    // Hide all pages
+    els.homePage.hidden = true;
+    els.courseDetailsPage.hidden = true;
+    els.categoriesPage.hidden = true;
+    els.aboutPage.hidden = true;
+
+    // Show selected page
+    switch (pageName) {
+      case 'home':
+        els.homePage.hidden = false;
+        break;
+      case 'courses':
+        els.homePage.hidden = false;
+        // Scroll to courses section
+        document.getElementById('courses').scrollIntoView({ behavior: 'smooth' });
+        break;
+      case 'categories':
+        els.categoriesPage.hidden = false;
+        renderCategories();
+        break;
+      case 'about':
+        els.aboutPage.hidden = false;
+        break;
+      default:
+        els.homePage.hidden = false;
+    }
+
+    state.currentPage = pageName;
+    
+    // Update active navigation
+    els.navLinks.forEach(link => {
+      link.classList.toggle('active', link.getAttribute('data-page') === pageName);
+    });
+  }
+
+  function showCourseDetails(course) {
+    els.homePage.hidden = true;
+    els.courseDetailsPage.hidden = false;
+    
+    els.courseTitleBreadcrumb.textContent = course.title;
+    
+    const isEnrolled = state.enrolledCourses.includes(course.id);
+    
+    els.courseDetailsContent.innerHTML = `
+      <div class="course-details-header">
+        <h1>${escapeHtml(course.title)}</h1>
+        <div class="course-meta">
+          <span>⭐ ${course.rating.toFixed(1)} (${formatNumber(course.reviews)} reviews)</span>
+          <span>👤 ${escapeHtml(course.instructor)}</span>
+          <span>⏱️ ${course.duration}</span>
+          <span>🏷️ ${escapeHtml(course.level)}</span>
+          <span>📚 ${escapeHtml(course.category)}</span>
+        </div>
+      </div>
+      <div class="course-details-content">
+        <h2>About this course</h2>
+        <p>${escapeHtml(course.description)}</p>
+        
+        <h2>What you'll learn</h2>
+        <p>This comprehensive course will take you from fundamentals to advanced concepts, with hands-on projects and real-world examples. You'll build practical skills that you can immediately apply in your work.</p>
+        
+        <h2>Course content</h2>
+        <p>• Introduction and setup<br>
+        • Core concepts and fundamentals<br>
+        • Advanced techniques and best practices<br>
+        • Real-world projects and case studies<br>
+        • Final project and next steps</p>
+        
+        <h2>Requirements</h2>
+        <p>• Basic computer skills<br>
+        • No prior experience required (for beginner courses)<br>
+        • A computer with internet access</p>
+        
+        <div class="course-actions">
+          ${isEnrolled ? 
+            '<button class="btn-primary" disabled>Already Enrolled</button>' :
+            '<button class="btn-primary" onclick="enrollInCourse(' + course.id + ')">Enroll Now</button>'
+          }
+          <button class="btn-secondary" onclick="showPage(\'home\')">Back to Courses</button>
+        </div>
+      </div>
+    `;
+    
+    state.currentPage = 'course-details';
+  }
+
+  function renderCategories() {
+    const categories = Array.from(new Set(state.courses.map(c => c.category))).sort();
+    
+    els.categoriesGrid.innerHTML = categories.map(cat => {
+      const categoryCourses = state.courses.filter(c => c.category === cat);
+      const avgRating = categoryCourses.reduce((sum, c) => sum + c.rating, 0) / categoryCourses.length;
+      
+      return `
+        <div class="category-card">
+          <h3>${escapeHtml(cat)}</h3>
+          <p>${categoryCourses.length} courses available</p>
+          <p>Average rating: ⭐ ${avgRating.toFixed(1)}</p>
+          <button class="btn-primary" onclick="filterByCategory('${cat.toLowerCase()}')">Browse Courses</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function filterByCategory(category) {
+    showPage('home');
+    els.category.value = category;
+    state.category = category;
+    applyFilters();
   }
 
   function populateCategoryOptions(courses) {
@@ -133,7 +349,6 @@
     });
 
     list = sortCourses(list, state.sort);
-
     state.filtered = list;
     renderList(list);
     updateResults(list.length);
@@ -163,7 +378,6 @@
   }
 
   function parseDuration(text) {
-    // Supports formats like "3h 20m", "45m", "2h"
     let minutes = 0;
     const h = text.match(/(\d+)\s*h/);
     const m = text.match(/(\d+)\s*m/);
@@ -186,6 +400,8 @@
 
   function courseCardHTML(course) {
     const imgUrl = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/800/450`;
+    const isEnrolled = state.enrolledCourses.includes(course.id);
+    
     return `
       <article class="card" tabindex="0">
         <div class="card-media">
@@ -202,7 +418,10 @@
           <div class="tags">${course.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
           <div class="card-actions">
             <span class="muted">${formatNumber(course.students)} learners</span>
-            <button class="view-btn" data-course-id="${course.id}" aria-haspopup="dialog" aria-controls="courseModal">View details</button>
+            ${isEnrolled ? 
+              '<span class="tag" style="background: var(--success); color: white;">Enrolled</span>' :
+              '<button class="view-btn" data-course-id="' + course.id + '" aria-haspopup="dialog" aria-controls="courseModal">View details</button>'
+            }
           </div>
         </div>
       </article>
@@ -221,33 +440,175 @@
     els.results.textContent = `${count} course${count === 1 ? '' : 's'} found`;
   }
 
-  function openModal(course) {
+  function openCourseModal(course) {
     els.modalImage.src = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/1200/800`;
     els.modalImage.alt = `${course.title} image`;
     els.modalTitle.textContent = course.title;
+    els.modalTitle.setAttribute('data-course-id', course.id);
     els.modalDesc.textContent = course.description;
     els.modalInstructor.textContent = `Instructor: ${course.instructor}`;
     els.modalLevel.textContent = `Level: ${course.level}`;
     els.modalDuration.textContent = `Duration: ${course.duration}`;
     els.modalTags.innerHTML = course.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('');
-    els.modalCta.href = course.url || '#';
 
-    showModal();
+    const isEnrolled = state.enrolledCourses.includes(course.id);
+    els.modalEnroll.textContent = isEnrolled ? 'Already Enrolled' : 'Enroll Now';
+    els.modalEnroll.disabled = isEnrolled;
+
+    showCourseModal();
   }
 
-  let lastFocusedElement = null;
-  function showModal() {
-    lastFocusedElement = document.activeElement;
-    els.modal.removeAttribute('hidden');
-    els.modal.setAttribute('aria-hidden', 'false');
-    trapFocus(els.modalDialog);
+  function showCourseModal() {
+    els.courseModal.removeAttribute('hidden');
+    els.courseModal.setAttribute('aria-hidden', 'false');
+    trapFocus(els.courseModal);
   }
 
-  function closeModal() {
-    els.modal.setAttribute('aria-hidden', 'true');
-    els.modal.setAttribute('hidden', '');
+  function closeCourseModal() {
+    els.courseModal.setAttribute('aria-hidden', 'true');
+    els.courseModal.setAttribute('hidden', '');
     releaseFocusTrap();
-    if (lastFocusedElement && lastFocusedElement.focus) lastFocusedElement.focus();
+  }
+
+  // Authentication functions
+  function openAuthModal(type) {
+    els.authModal.removeAttribute('hidden');
+    els.authModal.setAttribute('aria-hidden', 'false');
+    switchAuthForm(type);
+    trapFocus(els.authModal);
+  }
+
+  function closeAuthModal() {
+    els.authModal.setAttribute('aria-hidden', 'true');
+    els.authModal.setAttribute('hidden', '');
+    releaseFocusTrap();
+  }
+
+  function switchAuthForm(type) {
+    if (type === 'signup') {
+      els.signInForm.hidden = true;
+      els.signUpForm.hidden = false;
+    } else {
+      els.signInForm.hidden = false;
+      els.signUpForm.hidden = true;
+    }
+  }
+
+  function handleSignIn(e) {
+    e.preventDefault();
+    const email = document.getElementById('signInEmail').value;
+    const password = document.getElementById('signInPassword').value;
+
+    // Simple validation - in a real app, this would be an API call
+    if (email && password) {
+      const user = { email, name: email.split('@')[0] };
+      signInUser(user);
+      closeAuthModal();
+      els.signInFormElement.reset();
+    }
+  }
+
+  function handleSignUp(e) {
+    e.preventDefault();
+    const name = document.getElementById('signUpName').value;
+    const email = document.getElementById('signUpEmail').value;
+    const password = document.getElementById('signUpPassword').value;
+    const confirmPassword = document.getElementById('signUpConfirmPassword').value;
+
+    if (password !== confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    if (name && email && password) {
+      const user = { email, name };
+      signInUser(user);
+      closeAuthModal();
+      els.signUpFormElement.reset();
+    }
+  }
+
+  function signInUser(user) {
+    state.currentUser = user;
+    localStorage.setItem('learnhub_user', JSON.stringify(user));
+    updateAuthUI();
+  }
+
+  function handleSignOut() {
+    state.currentUser = null;
+    state.enrolledCourses = [];
+    localStorage.removeItem('learnhub_user');
+    updateAuthUI();
+    showPage('home');
+  }
+
+  function checkAuthState() {
+    const savedUser = localStorage.getItem('learnhub_user');
+    if (savedUser) {
+      state.currentUser = JSON.parse(savedUser);
+      updateAuthUI();
+    }
+  }
+
+  function updateAuthUI() {
+    if (state.currentUser) {
+      els.authButtons.hidden = true;
+      els.userMenu.hidden = false;
+      els.userInitials.textContent = state.currentUser.name.charAt(0).toUpperCase();
+      els.userName.textContent = state.currentUser.name;
+    } else {
+      els.authButtons.hidden = false;
+      els.userMenu.hidden = true;
+    }
+  }
+
+  function enrollInCourse(courseId) {
+    if (!state.currentUser) {
+      openAuthModal('signin');
+      return;
+    }
+
+    if (!state.enrolledCourses.includes(courseId)) {
+      state.enrolledCourses.push(courseId);
+      localStorage.setItem('learnhub_enrolled', JSON.stringify(state.enrolledCourses));
+      
+      // Update UI
+      if (state.currentPage === 'home') {
+        applyFilters(); // Re-render to show enrolled status
+      }
+      
+      // Show success message
+      showNotification('Successfully enrolled in course!', 'success');
+    }
+  }
+
+  function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--error)' : 'var(--brand)'};
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      box-shadow: var(--shadow-2);
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+    `;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   // Focus trap
@@ -333,4 +694,24 @@
       { id: 12, title: 'Data Structures & Algorithms', instructor: 'Henry Park', level: 'Advanced', category: 'Development', rating: 4.8, reviews: 7210, students: 140320, duration: '8h 40m', publishedAt: '2023-02-15', tags: ['Algorithms', 'Coding Interviews', 'DSA'], description: lorem(300), url: '#', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1200&auto=format&fit=crop' }
     ];
   }
+
+  // Load enrolled courses from localStorage
+  const savedEnrolled = localStorage.getItem('learnhub_enrolled');
+  if (savedEnrolled) {
+    state.enrolledCourses = JSON.parse(savedEnrolled);
+  }
+
+  // Add CSS animations for notifications
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
 })();

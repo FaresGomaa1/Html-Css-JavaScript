@@ -26,62 +26,137 @@
 
       <nav id="primary-navigation" class="site-nav" aria-label="Primary">
         <ul class="nav-links">
-          <li><a href="#">Home</a></li>
-          <li><a href="#courses">Courses</a></li>
-          <li><a href="#categories">Categories</a></li>
-          <li><a href="#about">About</a></li>
+          <li><a href="#" data-page="home">Home</a></li>
+          <li><a href="#courses" data-page="courses">Courses</a></li>
+          <li><a href="#categories" data-page="categories">Categories</a></li>
+          <li><a href="#about" data-page="about">About</a></li>
         </ul>
+        
+        <!-- Authentication Section -->
+        <div class="auth-section">
+          <div id="auth-buttons" class="auth-buttons">
+            <button id="signInBtn" class="btn-secondary">Sign In</button>
+            <button id="signUpBtn" class="btn-primary">Sign Up</button>
+          </div>
+          <div id="user-menu" class="user-menu" hidden>
+            <button id="userMenuBtn" class="user-menu-btn" aria-haspopup="true" aria-expanded="false">
+              <span id="userInitials" class="user-initials"></span>
+              <span id="userName" class="user-name"></span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div id="userDropdown" class="user-dropdown" hidden>
+              <a href="#" id="profileLink">Profile</a>
+              <a href="#" id="myCoursesLink">My Courses</a>
+              <button id="signOutBtn">Sign Out</button>
+            </div>
+          </div>
+        </div>
       </nav>
     </div>
   </header>
 
   <main id="main" class="site-main">
-    <section class="hero">
-      <div class="container hero-inner">
-        <div class="hero-copy">
-          <h1>Level up your skills</h1>
-          <p>Hand‑picked courses in development, design, data, and more. Learn at your pace with modern, practical content.</p>
-          <form id="searchForm" class="search-bar" role="search">
-            <label class="sr-only" for="searchInput">Search courses</label>
-            <input id="searchInput" name="q" type="search" placeholder="Search courses, topics, or instructors" autocomplete="off">
-            <select id="categorySelect" name="category" aria-label="Filter by category">
-              <option value="all">All categories</option>
-            </select>
-            <select id="levelSelect" name="level" aria-label="Filter by level">
-              <option value="all">All levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-            <select id="sortSelect" name="sort" aria-label="Sort courses">
-              <option value="popular">Most popular</option>
-              <option value="rating">Highest rated</option>
-              <option value="new">Newest</option>
-              <option value="durationAsc">Duration: Short → Long</option>
-              <option value="durationDesc">Duration: Long → Short</option>
-            </select>
-            <button type="reset" id="clearFilters" class="btn-secondary">Clear</button>
-          </form>
+    <!-- Home Page -->
+    <div id="home-page" class="page-content">
+      <section class="hero">
+        <div class="container hero-inner">
+          <div class="hero-copy">
+            <h1>Level up your skills</h1>
+            <p>Hand‑picked courses in development, design, data, and more. Learn at your pace with modern, practical content.</p>
+            <form id="searchForm" class="search-bar" role="search">
+              <label class="sr-only" for="searchInput">Search courses</label>
+              <input id="searchInput" name="q" type="search" placeholder="Search courses, topics, or instructors" autocomplete="off">
+              <select id="categorySelect" name="category" aria-label="Filter by category">
+                <option value="all">All categories</option>
+              </select>
+              <select id="levelSelect" name="level" aria-label="Filter by level">
+                <option value="all">All levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+              <select id="sortSelect" name="sort" aria-label="Sort courses">
+                <option value="popular">Most popular</option>
+                <option value="rating">Highest rated</option>
+                <option value="new">Newest</option>
+                <option value="durationAsc">Duration: Short → Long</option>
+                <option value="durationDesc">Duration: Long → Short</option>
+              </select>
+              <button type="reset" id="clearFilters" class="btn-secondary">Clear</button>
+            </form>
+          </div>
+          <div class="hero-media" aria-hidden="true">
+            <div class="hero-art"></div>
+          </div>
         </div>
-        <div class="hero-media" aria-hidden="true">
-          <div class="hero-art"></div>
+      </section>
+
+      <section class="results-bar">
+        <div class="container results-inner">
+          <p id="resultsCount" class="muted">Loading courses…</p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="results-bar">
-      <div class="container results-inner">
-        <p id="resultsCount" class="muted">Loading courses…</p>
-      </div>
-    </section>
+      <section class="courses" id="courses">
+        <div class="container">
+          <div id="coursesGrid" class="courses-grid" aria-live="polite" aria-busy="true"></div>
+        </div>
+      </section>
+    </div>
 
-    <section class="courses" id="courses">
+    <!-- Course Details Page -->
+    <div id="course-details-page" class="page-content" hidden>
       <div class="container">
-        <div id="coursesGrid" class="courses-grid" aria-live="polite" aria-busy="true"></div>
+        <nav class="breadcrumb">
+          <a href="#" data-page="home">Home</a>
+          <span aria-hidden="true">/</span>
+          <a href="#" data-page="courses">Courses</a>
+          <span aria-hidden="true">/</span>
+          <span id="courseTitleBreadcrumb">Course Details</span>
+        </nav>
+        
+        <div id="courseDetailsContent" class="course-details">
+          <!-- Course details will be populated here -->
+        </div>
       </div>
-    </section>
+    </div>
+
+    <!-- Categories Page -->
+    <div id="categories-page" class="page-content" hidden>
+      <div class="container">
+        <h1>Course Categories</h1>
+        <div id="categoriesGrid" class="categories-grid">
+          <!-- Categories will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- About Page -->
+    <div id="about-page" class="page-content" hidden>
+      <div class="container">
+        <h1>About LearnHub</h1>
+        <p>LearnHub is your gateway to modern, practical learning. We curate the best courses across development, design, data, and more to help you build real-world skills.</p>
+        <div class="about-features">
+          <div class="feature">
+            <h3>Expert Instructors</h3>
+            <p>Learn from industry professionals with years of experience.</p>
+          </div>
+          <div class="feature">
+            <h3>Practical Projects</h3>
+            <p>Build real-world projects to reinforce your learning.</p>
+          </div>
+          <div class="feature">
+            <h3>Flexible Learning</h3>
+            <p>Study at your own pace with lifetime access to courses.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
+  <!-- Course Modal -->
   <div id="courseModal" class="modal" hidden aria-hidden="true">
     <div class="modal-backdrop" data-close="true"></div>
     <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
@@ -97,8 +172,65 @@
             <span id="modalDuration"></span>
           </div>
           <div id="modalTags" class="tags"></div>
-          <a id="modalCta" class="btn-primary" href="#" target="_blank" rel="noopener">Start course</a>
+          <div class="modal-actions">
+            <button id="modalViewDetails" class="btn-primary">View Full Details</button>
+            <button id="modalEnroll" class="btn-secondary">Enroll Now</button>
+          </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authentication Modals -->
+  <div id="authModal" class="modal" hidden aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-dialog auth-modal" role="dialog" aria-modal="true">
+      <button class="modal-close" aria-label="Close authentication" data-close="true">✕</button>
+      
+      <!-- Sign In Form -->
+      <div id="signInForm" class="auth-form">
+        <h2>Sign In</h2>
+        <form id="signInFormElement">
+          <div class="form-group">
+            <label for="signInEmail">Email</label>
+            <input type="email" id="signInEmail" name="email" required>
+          </div>
+          <div class="form-group">
+            <label for="signInPassword">Password</label>
+            <input type="password" id="signInPassword" name="password" required>
+          </div>
+          <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+        <p class="auth-switch">
+          Don't have an account? <button type="button" id="switchToSignUp">Sign Up</button>
+        </p>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="signUpForm" class="auth-form" hidden>
+        <h2>Sign Up</h2>
+        <form id="signUpFormElement">
+          <div class="form-group">
+            <label for="signUpName">Full Name</label>
+            <input type="text" id="signUpName" name="name" required>
+          </div>
+          <div class="form-group">
+            <label for="signUpEmail">Email</label>
+            <input type="email" id="signUpEmail" name="email" required>
+          </div>
+          <div class="form-group">
+            <label for="signUpPassword">Password</label>
+            <input type="password" id="signUpPassword" name="password" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label for="signUpConfirmPassword">Confirm Password</label>
+            <input type="password" id="signUpConfirmPassword" name="confirmPassword" required minlength="6">
+          </div>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </form>
+        <p class="auth-switch">
+          Already have an account? <button type="button" id="switchToSignIn">Sign In</button>
+        </p>
       </div>
     </div>
   </div>
