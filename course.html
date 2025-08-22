@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course details — LearnHub</title>
+  <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="LearnHub Home">
+        <span class="brand-mark" aria-hidden="true">LH</span>
+        <span class="brand-text">LearnHub</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="index.html">Home</a></li>
+          <li id="authLink"></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="site-main" style="padding:2rem 0;">
+    <div class="container" id="courseDetail" aria-busy="true"></div>
+  </main>
+
+  <script src="./assets/auth.js" defer></script>
+  <script src="./assets/details.js" defer></script>
+</body>
+</html>
