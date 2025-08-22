@@ -1,26 +1,41 @@
 (function() {
   'use strict';
 
+  // Application state
   const state = {
     courses: [],
     filtered: [],
     query: '',
     category: 'all',
     level: 'all',
-    sort: 'popular'
+    sort: 'popular',
+    currentPage: 'home', // 'home' or 'courseDetails'
+    currentCourse: null,
+    user: null, // User authentication state
+    enrolledCourses: new Set(),
+    wishlist: new Set()
   };
 
+  // DOM elements cache
   const els = {};
 
+  // Initialize app
   document.addEventListener('DOMContentLoaded', () => {
     cacheElements();
+    initializeAuth();
     hydrateInitialData();
-    wireHeaderNav();
-    wireFilters();
+    wireEventListeners();
     renderYear();
+    checkAuthState();
   });
 
   function cacheElements() {
+    // Main app elements
+    els.app = document.getElementById('app');
+    els.homePage = document.getElementById('homePage');
+    els.courseDetailsPage = document.getElementById('courseDetailsPage');
+    
+    // Course grid and filters
     els.grid = document.getElementById('coursesGrid');
     els.results = document.getElementById('resultsCount');
     els.search = document.getElementById('searchInput');
@@ -28,6 +43,35 @@
     els.level = document.getElementById('levelSelect');
     els.sort = document.getElementById('sortSelect');
     els.clear = document.getElementById('clearFilters');
+    
+    // Navigation
+    els.homeLink = document.getElementById('homeLink');
+    els.coursesLink = document.getElementById('coursesLink');
+    els.backToCourses = document.getElementById('backToCourses');
+    
+    // Authentication elements
+    els.authButtons = document.getElementById('authButtons');
+    els.signInBtn = document.getElementById('signInBtn');
+    els.signUpBtn = document.getElementById('signUpBtn');
+    els.userMenu = document.getElementById('userMenu');
+    els.userAvatar = document.getElementById('userAvatar');
+    els.userInitials = document.getElementById('userInitials');
+    els.userName = document.getElementById('userName');
+    els.userEmail = document.getElementById('userEmail');
+    els.userDropdown = document.getElementById('userDropdown');
+    els.myCoursesBtn = document.getElementById('myCoursesBtn');
+    els.profileBtn = document.getElementById('profileBtn');
+    els.signOutBtn = document.getElementById('signOutBtn');
+    
+    // Auth modals
+    els.signInModal = document.getElementById('signInModal');
+    els.signUpModal = document.getElementById('signUpModal');
+    els.signInForm = document.getElementById('signInForm');
+    els.signUpForm = document.getElementById('signUpForm');
+    els.switchToSignUp = document.getElementById('switchToSignUp');
+    els.switchToSignIn = document.getElementById('switchToSignIn');
+    
+    // Course modal (existing)
     els.modal = document.getElementById('courseModal');
     els.modalBackdrop = els.modal.querySelector('.modal-backdrop');
     els.modalDialog = els.modal.querySelector('.modal-dialog');
@@ -40,12 +84,59 @@
     els.modalDuration = document.getElementById('modalDuration');
     els.modalTags = document.getElementById('modalTags');
     els.modalCta = document.getElementById('modalCta');
+    els.viewDetailsBtn = document.getElementById('viewDetailsBtn');
+    
+    // Course details page elements
+    els.courseTitle = document.getElementById('courseTitle');
+    els.courseDescription = document.getElementById('courseDescription');
+    els.courseInstructor = document.getElementById('courseInstructor');
+    els.courseLevel = document.getElementById('courseLevel');
+    els.courseDuration = document.getElementById('courseDuration');
+    els.courseStudents = document.getElementById('courseStudents');
+    els.courseRating = document.getElementById('courseRating');
+    els.courseReviews = document.getElementById('courseReviews');
+    els.courseTags = document.getElementById('courseTags');
+    els.courseImage = document.getElementById('courseImage');
+    els.enrollBtn = document.getElementById('enrollBtn');
+    els.addToWishlistBtn = document.getElementById('addToWishlistBtn');
+    
+    // Course content tabs
+    els.tabBtns = document.querySelectorAll('.tab-btn');
+    els.tabPanes = document.querySelectorAll('.tab-pane');
+  }
+
+  function initializeAuth() {
+    // Load user data from localStorage
+    const savedUser = localStorage.getItem('learnhub_user');
+    const savedEnrolled = localStorage.getItem('learnhub_enrolled');
+    const savedWishlist = localStorage.getItem('learnhub_wishlist');
+    
+    if (savedUser) {
+      state.user = JSON.parse(savedUser);
+    }
+    
+    if (savedEnrolled) {
+      state.enrolledCourses = new Set(JSON.parse(savedEnrolled));
+    }
+    
+    if (savedWishlist) {
+      state.wishlist = new Set(JSON.parse(savedWishlist));
+    }
   }
 
   function hydrateInitialData() {
     state.courses = getSeedCourses();
     populateCategoryOptions(state.courses);
     applyFilters();
+  }
+
+  function wireEventListeners() {
+    wireHeaderNav();
+    wireFilters();
+    wireAuthEvents();
+    wireCourseEvents();
+    wireNavigationEvents();
+    wireCourseDetailsEvents();
   }
 
   function wireHeaderNav() {
@@ -92,7 +183,7 @@
       const button = e.target.closest('[data-course-id]');
       if (button) {
         const courseId = button.getAttribute('data-course-id');
-        const course = state.filtered.find((c) => String(c.id) === String(courseId)) || state.courses.find((c) => String(c.id) === String(courseId));
+        const course = findCourseById(courseId);
         if (course) openModal(course);
       }
     });
@@ -106,6 +197,318 @@
     });
   }
 
+  function wireAuthEvents() {
+    // Show auth modals
+    els.signInBtn.addEventListener('click', () => showAuthModal('signIn'));
+    els.signUpBtn.addEventListener('click', () => showAuthModal('signUp'));
+    
+    // Switch between auth modals
+    els.switchToSignUp.addEventListener('click', () => {
+      closeAuthModal('signIn');
+      showAuthModal('signUp');
+    });
+    els.switchToSignIn.addEventListener('click', () => {
+      closeAuthModal('signUp');
+      showAuthModal('signIn');
+    });
+    
+    // Handle form submissions
+    els.signInForm.addEventListener('submit', handleSignIn);
+    els.signUpForm.addEventListener('submit', handleSignUp);
+    
+    // User menu interactions
+    els.userAvatar.addEventListener('click', toggleUserMenu);
+    els.signOutBtn.addEventListener('click', handleSignOut);
+    
+    // Close auth modals
+    els.signInModal.addEventListener('click', (e) => {
+      if (e.target.matches('[data-close]') || e.target.classList.contains('modal-backdrop')) {
+        closeAuthModal('signIn');
+      }
+    });
+    els.signUpModal.addEventListener('click', (e) => {
+      if (e.target.matches('[data-close]') || e.target.classList.contains('modal-backdrop')) {
+        closeAuthModal('signUp');
+      }
+    });
+    
+    // Close user menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!els.userMenu.contains(e.target)) {
+        els.userMenu.classList.remove('open');
+      }
+    });
+    
+    // Handle escape key for auth modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!els.signInModal.hasAttribute('hidden')) closeAuthModal('signIn');
+        if (!els.signUpModal.hasAttribute('hidden')) closeAuthModal('signUp');
+      }
+    });
+  }
+
+  function wireCourseEvents() {
+    els.viewDetailsBtn.addEventListener('click', () => {
+      if (state.currentCourse) {
+        closeModal();
+        showCourseDetails(state.currentCourse);
+      }
+    });
+  }
+
+  function wireNavigationEvents() {
+    els.homeLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showHomePage();
+    });
+    
+    els.coursesLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showHomePage();
+      document.getElementById('courses').scrollIntoView({ behavior: 'smooth' });
+    });
+    
+    els.backToCourses.addEventListener('click', () => {
+      showHomePage();
+    });
+  }
+
+  function wireCourseDetailsEvents() {
+    // Tab navigation
+    els.tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabName = btn.getAttribute('data-tab');
+        switchTab(tabName);
+      });
+    });
+    
+    // Course actions
+    els.enrollBtn.addEventListener('click', handleEnroll);
+    els.addToWishlistBtn.addEventListener('click', handleWishlist);
+  }
+
+  // Authentication functions
+  function showAuthModal(type) {
+    const modal = type === 'signIn' ? els.signInModal : els.signUpModal;
+    modal.removeAttribute('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    
+    // Focus first input
+    const firstInput = modal.querySelector('input');
+    if (firstInput) firstInput.focus();
+  }
+
+  function closeAuthModal(type) {
+    const modal = type === 'signIn' ? els.signInModal : els.signUpModal;
+    modal.setAttribute('hidden', '');
+    modal.setAttribute('aria-hidden', 'true');
+    
+    // Clear form
+    const form = type === 'signIn' ? els.signInForm : els.signUpForm;
+    form.reset();
+  }
+
+  function handleSignIn(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const email = formData.get('email');
+    const password = formData.get('password');
+    
+    // Simple validation (in real app, this would be server-side)
+    if (email && password) {
+      const user = {
+        id: Date.now(),
+        name: email.split('@')[0], // Simple name extraction
+        email: email,
+        joinDate: new Date().toISOString()
+      };
+      
+      state.user = user;
+      localStorage.setItem('learnhub_user', JSON.stringify(user));
+      
+      closeAuthModal('signIn');
+      updateAuthUI();
+      showNotification('Welcome back!', 'success');
+    }
+  }
+
+  function handleSignUp(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const name = formData.get('name');
+    const email = formData.get('email');
+    const password = formData.get('password');
+    const confirmPassword = formData.get('confirmPassword');
+    
+    // Validation
+    if (password !== confirmPassword) {
+      showNotification('Passwords do not match', 'error');
+      return;
+    }
+    
+    if (name && email && password) {
+      const user = {
+        id: Date.now(),
+        name: name,
+        email: email,
+        joinDate: new Date().toISOString()
+      };
+      
+      state.user = user;
+      localStorage.setItem('learnhub_user', JSON.stringify(user));
+      
+      closeAuthModal('signUp');
+      updateAuthUI();
+      showNotification('Account created successfully!', 'success');
+    }
+  }
+
+  function handleSignOut() {
+    state.user = null;
+    localStorage.removeItem('learnhub_user');
+    updateAuthUI();
+    els.userMenu.classList.remove('open');
+    showNotification('Signed out successfully', 'success');
+  }
+
+  function toggleUserMenu() {
+    els.userMenu.classList.toggle('open');
+  }
+
+  function checkAuthState() {
+    updateAuthUI();
+  }
+
+  function updateAuthUI() {
+    if (state.user) {
+      // Show user menu, hide auth buttons
+      els.authButtons.style.display = 'none';
+      els.userMenu.removeAttribute('hidden');
+      
+      // Update user info
+      els.userName.textContent = state.user.name;
+      els.userEmail.textContent = state.user.email;
+      els.userInitials.textContent = state.user.name.charAt(0).toUpperCase();
+    } else {
+      // Show auth buttons, hide user menu
+      els.authButtons.style.display = 'flex';
+      els.userMenu.setAttribute('hidden', '');
+    }
+  }
+
+  // Course details functions
+  function showCourseDetails(course) {
+    state.currentPage = 'courseDetails';
+    state.currentCourse = course;
+    
+    els.homePage.setAttribute('hidden', '');
+    els.courseDetailsPage.removeAttribute('hidden');
+    
+    populateCourseDetails(course);
+    window.scrollTo(0, 0);
+  }
+
+  function showHomePage() {
+    state.currentPage = 'home';
+    state.currentCourse = null;
+    
+    els.courseDetailsPage.setAttribute('hidden', '');
+    els.homePage.removeAttribute('hidden');
+  }
+
+  function populateCourseDetails(course) {
+    // Basic course info
+    els.courseTitle.textContent = course.title;
+    els.courseDescription.textContent = course.description;
+    els.courseInstructor.textContent = course.instructor;
+    els.courseLevel.textContent = course.level;
+    els.courseDuration.textContent = course.duration;
+    els.courseStudents.textContent = formatNumber(course.students);
+    
+    // Rating
+    els.courseRating.innerHTML = generateStarRating(course.rating);
+    els.courseReviews.textContent = `(${formatNumber(course.reviews)} reviews)`;
+    
+    // Tags
+    els.courseTags.innerHTML = course.tags.map(tag => 
+      `<span class="tag">${escapeHtml(tag)}</span>`
+    ).join('');
+    
+    // Image
+    const imgUrl = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/1200/800`;
+    els.courseImage.src = imgUrl;
+    els.courseImage.alt = `${course.title} thumbnail`;
+    
+    // Update enrollment button
+    updateEnrollmentUI(course.id);
+  }
+
+  function switchTab(tabName) {
+    // Update tab buttons
+    els.tabBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+    
+    // Update tab panes
+    els.tabPanes.forEach(pane => {
+      pane.classList.toggle('active', pane.id === `${tabName}Tab`);
+    });
+  }
+
+  function handleEnroll() {
+    if (!state.user) {
+      showAuthModal('signIn');
+      return;
+    }
+    
+    if (state.currentCourse) {
+      const courseId = state.currentCourse.id;
+      if (state.enrolledCourses.has(courseId)) {
+        // Already enrolled - could show course content or progress
+        showNotification('You are already enrolled in this course!', 'info');
+      } else {
+        state.enrolledCourses.add(courseId);
+        localStorage.setItem('learnhub_enrolled', JSON.stringify([...state.enrolledCourses]));
+        updateEnrollmentUI(courseId);
+        showNotification('Successfully enrolled in course!', 'success');
+      }
+    }
+  }
+
+  function handleWishlist() {
+    if (!state.user) {
+      showAuthModal('signIn');
+      return;
+    }
+    
+    if (state.currentCourse) {
+      const courseId = state.currentCourse.id;
+      if (state.wishlist.has(courseId)) {
+        state.wishlist.delete(courseId);
+        showNotification('Removed from wishlist', 'info');
+      } else {
+        state.wishlist.add(courseId);
+        showNotification('Added to wishlist', 'success');
+      }
+      
+      localStorage.setItem('learnhub_wishlist', JSON.stringify([...state.wishlist]));
+      updateWishlistUI(courseId);
+    }
+  }
+
+  function updateEnrollmentUI(courseId) {
+    const isEnrolled = state.enrolledCourses.has(courseId);
+    els.enrollBtn.textContent = isEnrolled ? 'Continue Learning' : 'Enroll Now';
+    els.enrollBtn.classList.toggle('enrolled', isEnrolled);
+  }
+
+  function updateWishlistUI(courseId) {
+    const isInWishlist = state.wishlist.has(courseId);
+    els.addToWishlistBtn.textContent = isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist';
+  }
+
+  // Existing course functions (updated)
   function populateCategoryOptions(courses) {
     const categories = Array.from(new Set(courses.map((c) => c.category))).sort();
     for (const cat of categories) {
@@ -163,7 +566,6 @@
   }
 
   function parseDuration(text) {
-    // Supports formats like "3h 20m", "45m", "2h"
     let minutes = 0;
     const h = text.match(/(\d+)\s*h/);
     const m = text.match(/(\d+)\s*m/);
@@ -186,10 +588,14 @@
 
   function courseCardHTML(course) {
     const imgUrl = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/800/450`;
+    const isEnrolled = state.enrolledCourses.has(course.id);
+    const isInWishlist = state.wishlist.has(course.id);
+    
     return `
       <article class="card" tabindex="0">
         <div class="card-media">
           <img src="${imgUrl}" alt="${escapeHtml(course.title)} thumbnail" loading="lazy" width="800" height="450" />
+          ${isInWishlist ? '<div class="wishlist-badge">♡</div>' : ''}
         </div>
         <div class="card-body">
           <h3 class="card-title">${escapeHtml(course.title)}</h3>
@@ -202,7 +608,9 @@
           <div class="tags">${course.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
           <div class="card-actions">
             <span class="muted">${formatNumber(course.students)} learners</span>
-            <button class="view-btn" data-course-id="${course.id}" aria-haspopup="dialog" aria-controls="courseModal">View details</button>
+            <button class="view-btn ${isEnrolled ? 'enrolled' : ''}" data-course-id="${course.id}" aria-haspopup="dialog" aria-controls="courseModal">
+              ${isEnrolled ? 'Continue' : 'View details'}
+            </button>
           </div>
         </div>
       </article>
@@ -222,6 +630,8 @@
   }
 
   function openModal(course) {
+    state.currentCourse = course;
+    
     els.modalImage.src = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/1200/800`;
     els.modalImage.alt = `${course.title} image`;
     els.modalTitle.textContent = course.title;
@@ -250,7 +660,7 @@
     if (lastFocusedElement && lastFocusedElement.focus) lastFocusedElement.focus();
   }
 
-  // Focus trap
+  // Focus trap (existing code)
   let trapCleanup = null;
   function trapFocus(container) {
     const focusableSelectors = [
@@ -290,7 +700,77 @@
     if (typeof trapCleanup === 'function') trapCleanup();
   }
 
-  // Utils
+  // Utility functions
+  function findCourseById(courseId) {
+    return state.filtered.find((c) => String(c.id) === String(courseId)) || 
+           state.courses.find((c) => String(c.id) === String(courseId));
+  }
+
+  function generateStarRating(rating) {
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    let stars = '';
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars += '⭐';
+    }
+    if (hasHalfStar) {
+      stars += '⭐'; // Could use half-star character if available
+    }
+    
+    return stars;
+  }
+
+  function showNotification(message, type = 'info') {
+    // Simple notification system
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 1rem 1.5rem;
+      border-radius: 10px;
+      color: white;
+      font-weight: 500;
+      z-index: 1000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    `;
+    
+    switch (type) {
+      case 'success':
+        notification.style.background = 'var(--success)';
+        break;
+      case 'error':
+        notification.style.background = 'var(--error)';
+        break;
+      case 'warning':
+        notification.style.background = 'var(--warning)';
+        break;
+      default:
+        notification.style.background = 'var(--brand)';
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after delay
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
+  }
+
   function debounce(fn, ms) {
     let id;
     return function(...args) {
@@ -315,7 +795,8 @@
   function getSeedCourses() {
     const lorem = (n) => (
       'Build practical skills with hands-on projects and modern best practices. '
-      + 'This course guides you from fundamentals to real-world proficiency in just a few hours.'
+      + 'This course guides you from fundamentals to real-world proficiency in just a few hours. '
+      + 'Perfect for beginners and experienced developers looking to expand their skillset.'
     ).slice(0, n);
 
     return [
