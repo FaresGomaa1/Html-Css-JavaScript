@@ -227,3 +227,20 @@ img, svg, video {
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow: 0 40px 120px rgba(14,165,233,0.15), inset 0 0 60px rgba(255,255,255,0.06);
 }
+
+/* Details page */
+.details { padding: 1.25rem 0 2.5rem; }
+.details .back { color: var(--muted); text-decoration: none; display:inline-block; margin-bottom: .75rem; }
+.details .back:hover { color: var(--text); }
+.details-hero { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 1rem; align-items: start; background: color-mix(in oklab, var(--panel), black 6%); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow-1); }
+.details-hero img { width: 100%; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.06); }
+
+/* Auth */
+.auth { display: grid; place-items: center; padding: 2rem 0 3rem; }
+.auth-card { width: min(520px, 92%); background: color-mix(in oklab, var(--panel), black 6%); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow-1); }
+.auth-card h1 { margin: 0 0 0.75rem; }
+.auth-card form { display: grid; gap: 0.75rem; }
+.auth-card label { display: grid; gap: 0.35rem; font-weight: 600; }
+.auth-card input { appearance: none; border: 1px solid rgba(255,255,255,0.1); background: var(--surface); color: var(--text); padding: 0.65rem 0.75rem; border-radius: 10px; }
+
+@media (max-width: 900px) { .details-hero { grid-template-columns: 1fr; } }

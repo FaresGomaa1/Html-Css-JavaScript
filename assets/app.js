@@ -7,7 +7,8 @@
     query: '',
     category: 'all',
     level: 'all',
-    sort: 'popular'
+    sort: 'popular',
+    user: null
   };
 
   const els = {};
@@ -18,6 +19,8 @@
     wireHeaderNav();
     wireFilters();
     renderYear();
+    initAuth();
+    initRouter();
   });
 
   function cacheElements() {
@@ -40,6 +43,9 @@
     els.modalDuration = document.getElementById('modalDuration');
     els.modalTags = document.getElementById('modalTags');
     els.modalCta = document.getElementById('modalCta');
+    els.navAuth = document.getElementById('navAuth');
+    els.homeView = document.getElementById('homeView');
+    els.routeView = document.getElementById('routeView');
   }
 
   function hydrateInitialData() {
@@ -89,6 +95,13 @@
     });
 
     els.grid.addEventListener('click', (e) => {
+      const link = e.target.closest('[data-course-link]');
+      if (link) {
+        e.preventDefault();
+        const courseId = link.getAttribute('data-course-link');
+        navigateTo(`#/courses/${courseId}`);
+        return;
+      }
       const button = e.target.closest('[data-course-id]');
       if (button) {
         const courseId = button.getAttribute('data-course-id');
@@ -202,7 +215,7 @@
           <div class="tags">${course.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
           <div class="card-actions">
             <span class="muted">${formatNumber(course.students)} learners</span>
-            <button class="view-btn" data-course-id="${course.id}" aria-haspopup="dialog" aria-controls="courseModal">View details</button>
+            <a class="view-btn" href="#/courses/${course.id}" data-course-link="${course.id}">View details</a>
           </div>
         </div>
       </article>
@@ -332,5 +345,168 @@
       { id: 11, title: 'Email Marketing Mastery', instructor: 'Charlotte Lee', level: 'Beginner', category: 'Marketing', rating: 4.3, reviews: 480, students: 10430, duration: '1h 55m', publishedAt: '2022-12-04', tags: ['Email', 'Copywriting', 'Automation'], description: lorem(180), url: '#', image: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?q=80&w=1200&auto=format&fit=crop' },
       { id: 12, title: 'Data Structures & Algorithms', instructor: 'Henry Park', level: 'Advanced', category: 'Development', rating: 4.8, reviews: 7210, students: 140320, duration: '8h 40m', publishedAt: '2023-02-15', tags: ['Algorithms', 'Coding Interviews', 'DSA'], description: lorem(300), url: '#', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1200&auto=format&fit=crop' }
     ];
+  }
+
+  function initRouter() {
+    window.addEventListener('hashchange', handleRouteChange);
+    handleRouteChange();
+  }
+
+  function handleRouteChange() {
+    const hash = location.hash || '#';
+    // Routes: # -> home, #/signin, #/signup, #/signout, #/courses/:id
+    if (hash.startsWith('#/courses/')) {
+      const id = hash.split('/')[2];
+      renderCourseDetails(id);
+    } else if (hash === '#/signin') {
+      renderSignIn();
+    } else if (hash === '#/signup') {
+      renderSignUp();
+    } else if (hash === '#/signout') {
+      signOut();
+      navigateTo('#');
+    } else {
+      renderHome();
+    }
+  }
+
+  function navigateTo(hash) {
+    if (location.hash === hash) {
+      handleRouteChange();
+    } else {
+      location.hash = hash;
+    }
+  }
+
+  function renderHome() {
+    if (els.homeView) els.homeView.hidden = false;
+    if (els.routeView) {
+      els.routeView.hidden = true;
+      els.routeView.innerHTML = '';
+    }
+  }
+
+  function renderCourseDetails(id) {
+    const course = state.courses.find((c) => String(c.id) === String(id));
+    if (!course) {
+      renderNotFound('Course not found');
+      return;
+    }
+    if (els.homeView) els.homeView.hidden = true;
+    els.routeView.hidden = false;
+    els.routeView.innerHTML = courseDetailsHTML(course);
+  }
+
+  function courseDetailsHTML(course) {
+    const imgUrl = course.image || `https://picsum.photos/seed/${encodeURIComponent(course.id)}/1200/800`;
+    return `
+      <article class="details">
+        <a class="back" href="#">← Back to courses</a>
+        <div class="details-hero">
+          <img src="${imgUrl}" alt="${escapeHtml(course.title)} cover">
+          <div>
+            <h1>${escapeHtml(course.title)}</h1>
+            <p class="muted">By ${escapeHtml(course.instructor)} • ${escapeHtml(course.level)} • ${course.duration}</p>
+            <p>${escapeHtml(course.description)}</p>
+            <div class="tags">${course.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+            <div style="margin-top: .75rem; display:flex; gap:.5rem;">
+              <a class="btn-primary" href="${course.url || '#'}" target="_blank" rel="noopener">Start course</a>
+              ${state.user ? `<button id="enrollBtn" class="btn-secondary">Enroll</button>` : `<a class="btn-secondary" href="#/signin">Sign in to enroll</a>`}
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderNotFound(message) {
+    if (els.homeView) els.homeView.hidden = true;
+    els.routeView.hidden = false;
+    els.routeView.innerHTML = `
+      <div class="empty">
+        <p class="muted">${escapeHtml(message || 'Not found')}</p>
+        <p><a href="#">Go home</a></p>
+      </div>`;
+  }
+
+  // Auth
+  function initAuth() {
+    try {
+      const stored = localStorage.getItem('learnhub_user');
+      state.user = stored ? JSON.parse(stored) : null;
+    } catch (_) { state.user = null; }
+    renderAuthNav();
+  }
+
+  function renderAuthNav() {
+    if (!els.navAuth) return;
+    els.navAuth.innerHTML = state.user
+      ? `<a href="#/signout" title="Sign out">Sign out (${escapeHtml(state.user.email)})</a>`
+      : `<a href="#/signin">Sign in</a>`;
+  }
+
+  function signIn(email) {
+    state.user = { email };
+    localStorage.setItem('learnhub_user', JSON.stringify(state.user));
+    renderAuthNav();
+  }
+
+  function signOut() {
+    state.user = null;
+    localStorage.removeItem('learnhub_user');
+    renderAuthNav();
+  }
+
+  function renderSignIn() {
+    if (els.homeView) els.homeView.hidden = true;
+    els.routeView.hidden = false;
+    els.routeView.innerHTML = authFormHTML({ mode: 'signin' });
+    wireAuthForm('signin');
+  }
+
+  function renderSignUp() {
+    if (els.homeView) els.homeView.hidden = true;
+    els.routeView.hidden = false;
+    els.routeView.innerHTML = authFormHTML({ mode: 'signup' });
+    wireAuthForm('signup');
+  }
+
+  function authFormHTML({ mode }) {
+    const isSignIn = mode === 'signin';
+    return `
+      <section class="auth">
+        <div class="auth-card">
+          <h1>${isSignIn ? 'Sign in' : 'Create your account'}</h1>
+          <form id="authForm">
+            <label>Email
+              <input id="authEmail" type="email" required placeholder="you@example.com" autocomplete="email" />
+            </label>
+            <label>Password
+              <input id="authPassword" type="password" required minlength="6" placeholder="••••••••" autocomplete="current-password" />
+            </label>
+            <button class="btn-primary" type="submit">${isSignIn ? 'Sign in' : 'Sign up'}</button>
+          </form>
+          <p class="muted" style="margin-top:.75rem;">
+            ${isSignIn ? `No account? <a href="#/signup">Sign up</a>` : `Already have an account? <a href="#/signin">Sign in</a>`}
+          </p>
+        </div>
+      </section>
+    `;
+  }
+
+  function wireAuthForm(mode) {
+    const form = document.getElementById('authForm');
+    const emailEl = document.getElementById('authEmail');
+    const passEl = document.getElementById('authPassword');
+    if (!form) return;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = String(emailEl.value || '').trim();
+      const pass = String(passEl.value || '');
+      if (!email || pass.length < 6) return;
+      // Demo-only: store just email; no backend
+      signIn(email);
+      navigateTo('#');
+    });
   }
 })();
